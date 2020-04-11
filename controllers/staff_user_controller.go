@@ -193,7 +193,10 @@ func GetStaffUsers(response http.ResponseWriter, request *http.Request) {
 	}
 	if err := cursor.Err(); err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
+		json.NewEncoder(response).Encode(response_models.ErrorResponse{
+			ErrorCode: http.StatusInternalServerError,
+			ErrorMessage:  fmt.Sprintf("curosor err: %v", err),
+		})
 		return
 	}
 
