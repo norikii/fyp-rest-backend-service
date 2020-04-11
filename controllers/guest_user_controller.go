@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/gorilla/mux"
 
@@ -142,6 +142,22 @@ func checkGuestUser(email string, password string) (*response_models.SuccessLogi
 	token, err := auth.CreateJWTToken(guestUser.ID, guestUser.Email, guestUser.Email, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create token: %v", err)
+	}
+
+	// setting up the filter
+	filter := bson.M{"email": email}
+	// prepare update object
+	update := bson.D{
+		{
+			"$set", bson.D{
+			{"logged_at", time.Now().Unix()},
+		},
+		},
+	}
+	// update is the logged_at timestamp
+	res := collection.FindOneAndUpdate(context.Background(), filter, update)
+	if res.Err() != nil {
+		return nil, fmt.Errorf("unable to update logged_at field: %v", err)
 	}
 
 	// not send password in the response
