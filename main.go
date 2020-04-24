@@ -2,165 +2,25 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/tatrasoft/fyp-rest-backend-service/controllers"
+	"github.com/tatrasoft/fyp-rest-backend-service/db"
+	"github.com/tatrasoft/fyp-rest-backend-service/middleware"
+
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Item struct {
-	ID primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	ItemName string `json:"item_name,omitempty" bson:"item_name,omitempty"`
-	ItemDescription string `json:"item_description,omitempty" bson:"item_description,omitempty"`
-	ItemType string `json:"item_type,omitempty" bson:"item_type,omitempty"`
-	ItemImg string `json:"item_img,omitempty" bson:"item_img,omitempty"`
-	ItemPrice float32 `json:"item_price,omitempty" bson:"item_price,omitempty"`
-	EstimatePrepareTime  int64 `json:"estimate_prepare_time,omitempty" bson:"estimate_prepare_time,omitempty"`
-	CreatedAt int64 `json:"created_at,omitempty" bson:"created_at,omitempty"`
-	UpdatedAt int64 `json:"updated_at,omitempty" bson:"updated_at,omitempty"`
-	DeletedAt int64 `json:"deleted_at,omitempty" bson:"deleted_at,omitempty"`
-}
-
 var client *mongo.Client
 var clientErr error
-
-func CreateItem(w http.ResponseWriter, request *http.Request) {
-	var item Item
-	item.CreatedAt = time.Now().Unix()
-	item.UpdatedAt =  time.Now().Unix()
-
-	json.NewDecoder(request.Body).Decode(&item)
-	collection := client.Database("mydb").Collection("items")
-	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-	result, _ := collection.InsertOne(ctx, item)
-
-	w.Header().Add("content-type", "application/json")
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Add("Access-Control-Max-Age", "86400")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(result)
-}
-
-func GetItem(w http.ResponseWriter, r *http.Request) {
-	r.Header.Add("content-type", "application/json")
-	params := mux.Vars(r)
-	id, _ := primitive.ObjectIDFromHex(params["id"])
-	var item Item
-	collection := client.Database("mydb").Collection("items")
-	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-	err := collection.FindOne(ctx, Item{ID: id,}).Decode(&item)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{ "message": "` + err.Error() + `"}`))
-		return
-	}
-	json.NewEncoder(w).Encode(item)
-}
-
-func GetItems(response http.ResponseWriter, r *http.Request) {
-	response.Header().Add("content-type", "application/json")
-	response.Header().Add("Access-Control-Allow-Origin", "*")
-	response.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	response.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	response.Header().Add("Access-Control-Max-Age", "86400")
-
-	var items []Item
-	collection := client.Database("mydb").Collection("items")
-	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var item Item
-		cursor.Decode(&item)
-		items = append(items, item)
-	}
-	if err := cursor.Err(); err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
-		return
-	}
-
-	json.NewEncoder(response).Encode(items)
-}
-
-func DeleteItem(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Add("content-type", "application/json")
-	writer.Header().Add("Access-Control-Allow-Origin", "*")
-	writer.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	writer.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	writer.Header().Add("Access-Control-Max-Age", "86400")
-
-	params := mux.Vars(request)
-
-	id, _ := primitive.ObjectIDFromHex(params["id"])
-
-	collection := client.Database("mydb").Collection("items")
-	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"_id": id}
-
-	result, _ := collection.DeleteOne(ctx, filter)
-
-	json.NewEncoder(writer).Encode(result)
-}
-
-func UpdateItem(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Add("content-type", "application/json")
-	writer.Header().Add("Access-Control-Allow-Origin", "*")
-	writer.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	writer.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	writer.Header().Add("Access-Control-Max-Age", "86400")
-
-	params := mux.Vars(request)
-	var item Item
-
-	// get id
-	id, _ := primitive.ObjectIDFromHex(params["id"])
-
-	collection := client.Database("mydb").Collection("items")
-	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"_id": id}
-
-	// read update model
-	json.NewDecoder(request.Body).Decode(&item)
-
-	// prepare model update
-	update := bson.D{
-		{
-			"$set", bson.D{
-				{"item_name", item.ItemName},
-				{"item_description", item.ItemDescription},
-				{"item_type", item.ItemType},
-				{"item_img", item.ItemImg},
-				{"item_price", item.ItemPrice},
-				{"estimate_prepare_time", item.EstimatePrepareTime},
-				{"updated_at", time.Now().Unix()},
-
-			},
-		},
-	}
-
-	collection.FindOneAndUpdate(ctx, filter, update)
-	item.ID = id
-
-	json.NewEncoder(writer).Encode(item)
-}
 
 func main() {
 	fmt.Println("Starting the application...")
@@ -172,20 +32,85 @@ func main() {
 		log.Fatal(clientErr)
 	}
 
+	fmt.Println("Connecting to the database...")
 	connErr := client.Connect(ctx)
 	if connErr != nil {
 		log.Fatal(connErr)
 	}
 
-	router := mux.NewRouter()
-	router.HandleFunc("/item", CreateItem).Methods("POST")
-	router.HandleFunc("/items", GetItems).Methods("GET")
-	router.HandleFunc("/item/{id}", GetItem).Methods("GET")
-	router.HandleFunc("/items/{id}", UpdateItem).Methods("PUT")
-	router.HandleFunc("/items/{id}", DeleteItem).Methods("DELETE")
-	err := http.ListenAndServe(":12345", router)
+	fmt.Println("Checking the db connection...")
+	err := client.Ping(ctx, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-}
+	db.SetMongoClient(client)
+	fmt.Println("Database connection have been establish")
 
+	router := mux.NewRouter().StrictSlash(true)
+	//router.Use(middleware.CommonMiddleware)
+
+	// staff users
+	router.HandleFunc("/user/staff/register", controllers.CreateStaffUser).Methods("POST")
+	router.HandleFunc("/user/staff/login", controllers.LoginStaffUser).Methods("POST")
+
+	// guest users
+	router.HandleFunc("/user/guest/register", controllers.CreateGuestUser).Methods("POST")
+	router.HandleFunc("/user/guest/login", controllers.LoginGuestUser).Methods("POST")
+
+
+
+	// authenticated routes
+	apiAuthRoute := router.PathPrefix("/auth").Subrouter()
+	apiAuthRoute.Use(middleware.AuthMiddleware)
+	apiAuthRoute.HandleFunc("/dashboard", controllers.Dashboard).Methods("GET")
+
+	// items
+	apiAuthRoute.HandleFunc("/item", controllers.CreateItem).Methods("POST")
+	apiAuthRoute.HandleFunc("/items", controllers.GetItems).Methods("GET")
+	apiAuthRoute.HandleFunc("/item/{id}", controllers.GetItem).Methods("GET")
+	apiAuthRoute.HandleFunc("/item/{id}", controllers.UpdateItem).Methods("PUT")
+	apiAuthRoute.HandleFunc("/item/{id}", controllers.DeleteItem).Methods("DELETE")
+
+	// orders
+	apiAuthRoute.HandleFunc("/order", controllers.CreateOrder).Methods("POST")
+	apiAuthRoute.HandleFunc("/orders", controllers.GetOrders).Methods("GET")
+	apiAuthRoute.HandleFunc("/order/{id}", controllers.GetOrder).Methods("GET")
+	apiAuthRoute.HandleFunc("/order/{id}", controllers.UpdateOrder).Methods("PUT")
+	apiAuthRoute.HandleFunc("/order/{id}", controllers.DeleteOrder).Methods("DELETE")
+
+	// authenticated routes with admin privileges
+	//apiAdminRoute := router.PathPrefix("/admin").Subrouter()
+	//apiAdminRoute.Use(middleware.AdminMiddleware)
+
+	// staff users
+	apiAuthRoute.HandleFunc("/user/staff/all", controllers.GetStaffUsers).Methods("GET")
+	apiAuthRoute.HandleFunc("/user/staff/{id}", controllers.FindStaffUser).Methods("GET")
+	apiAuthRoute.HandleFunc("/user/staff/{id}", controllers.UpdateStaffUser).Methods("PUT")
+	apiAuthRoute.HandleFunc("/user/staff/{id}", controllers.DeleteStaffUser).Methods("DELETE")
+
+	// guest users
+	apiAuthRoute.HandleFunc("/user/guest/all", controllers.GetGuestUsers).Methods("GET")
+	apiAuthRoute.HandleFunc("/user/guest/{id}", controllers.FindGuestUser).Methods("GET")
+	apiAuthRoute.HandleFunc("/user/guest/{id}", controllers.UpdateGuestUser).Methods("PUT")
+	apiAuthRoute.HandleFunc("/user/guest/{id}", controllers.DeleteGuestUser).Methods("DELETE")
+
+	var handler http.Handler
+	{
+		handler = handlers.CORS(
+			handlers.AllowedOrigins([]string{"*"}),
+			handlers.AllowedMethods([]string{"GET", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"}),
+			handlers.AllowedHeaders([]string{"Origin", "Authorization", "Content-Type"}),
+			handlers.ExposedHeaders([]string{""}),
+			handlers.MaxAge(10),
+			handlers.AllowCredentials(),
+		)(router)
+		handler = handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(handler)
+	}
+
+	http.Handle("/", handler)
+	err = http.ListenAndServe(":12345", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Server is running and listening on port :12345...")
+}
