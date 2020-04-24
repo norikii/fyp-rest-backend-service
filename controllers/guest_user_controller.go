@@ -117,6 +117,7 @@ func LoginGuestUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(&successResponse)
 }
 
@@ -213,6 +214,7 @@ func GetGuestUsers(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing the response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(guestUsers)
 }
 
@@ -249,6 +251,7 @@ func FindGuestUser(response http.ResponseWriter, request *http.Request) {
 	guestUser.Password = ""
 
 	// prepare the response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(guestUser)
 }
 
@@ -313,6 +316,7 @@ func UpdateGuestUser(response http.ResponseWriter, request *http.Request) {
 	guestUser.Password = ""
 
 	// preparing the user response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(guestUser)
 }
 
@@ -349,6 +353,7 @@ func DeleteGuestUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(result)
 }
 

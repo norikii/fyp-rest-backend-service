@@ -15,15 +15,13 @@ import (
 )
 
 const (
-	itemsCollection = "items"
+	ordersCollection = "orders"
 )
 
-func CreateItem(response http.ResponseWriter, request *http.Request) {
-	item := &model.Item{}
-	item.CreatedAt = time.Now().Unix()
-	item.UpdatedAt =  time.Now().Unix()
+func CreateOrder(response http.ResponseWriter, request *http.Request) {
+	order := &model.Order{}
 
-	err := json.NewDecoder(request.Body).Decode(&item)
+	err := json.NewDecoder(request.Body).Decode(&order)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -32,7 +30,8 @@ func CreateItem(response http.ResponseWriter, request *http.Request) {
 		})
 		return
 	}
-	collection, err := db.GetDBCollection(dbname, itemsCollection)
+
+	collection, err := db.GetDBCollection(dbname, ordersCollection)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -42,12 +41,24 @@ func CreateItem(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-	result, err := collection.InsertOne(ctx, item)
+
+	var totalPrice float32
+
+	for _, orderItem := range order.Items {
+		totalPrice += orderItem.ItemPrice
+	}
+
+	// updates the timestamps
+	order.CreatedAt = time.Now().Unix()
+	order.UpdatedAt =  time.Now().Unix()
+	order.TotalPrice = totalPrice
+
+	result, err := collection.InsertOne(ctx, order)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
 			ErrorCode: http.StatusInternalServerError,
-			ErrorMessage:  fmt.Sprintf("unable to insert the entry: %v", err),
+			ErrorMessage:  fmt.Sprintf("unable to insert the record: %v", err),
 		})
 		return
 	}
@@ -56,8 +67,9 @@ func CreateItem(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
-func GetItem(response http.ResponseWriter, request *http.Request) {
+func GetOrder(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
+
 	id, err := primitive.ObjectIDFromHex(params["id"])
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
@@ -67,8 +79,10 @@ func GetItem(response http.ResponseWriter, request *http.Request) {
 		})
 		return
 	}
-	var item model.Item
-	collection, err := db.GetDBCollection(dbname, itemsCollection)
+
+	var order model.Order
+
+	collection, err := db.GetDBCollection(dbname, ordersCollection)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -78,23 +92,24 @@ func GetItem(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	ctx, _:= context.WithTimeout(context.Background(), 10*time.Second)
-	err = collection.FindOne(ctx, model.Item{ID: id,}).Decode(&item)
+
+	err = collection.FindOne(ctx, model.Order{ID: id,}).Decode(&order)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
 			ErrorCode: http.StatusInternalServerError,
-			ErrorMessage:  fmt.Sprintf("unable to find the entry: %v", err),
+			ErrorMessage:  fmt.Sprintf("unable to find the record: %v", err),
 		})
 		return
 	}
 
 	response.WriteHeader(http.StatusOK)
-	json.NewEncoder(response).Encode(item)
+	json.NewEncoder(response).Encode(order)
 }
 
-func GetItems(response http.ResponseWriter, request *http.Request) {
-	var items []model.Item
-	collection, err := db.GetDBCollection(dbname, itemsCollection)
+func GetOrders(response http.ResponseWriter, request *http.Request) {
+	var orders []model.Order
+	collection, err := db.GetDBCollection(dbname, ordersCollection)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -116,27 +131,27 @@ func GetItems(response http.ResponseWriter, request *http.Request) {
 	}
 	defer cursor.Close(ctx)
 	for cursor.Next(ctx) {
-		item :=  model.Item{}
-		err := cursor.Decode(&item)
+		order :=  model.Order{}
+		err := cursor.Decode(&order)
 		if err != nil {
 			response.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(response).Encode(response_models.ErrorResponse{
 				ErrorCode: http.StatusInternalServerError,
-				ErrorMessage:  fmt.Sprintf("unable to decode the item: %v", err),
+				ErrorMessage:  fmt.Sprintf("unable to decode the order: %v", err),
 			})
 			return
 		}
-		items = append(items, item)
+		orders = append(orders, order)
 	}
 	if err := cursor.Err(); err != nil {
 		//
 	}
 
 	response.WriteHeader(http.StatusOK)
-	json.NewEncoder(response).Encode(items)
+	json.NewEncoder(response).Encode(orders)
 }
 
-func DeleteItem(response http.ResponseWriter, request *http.Request) {
+func DeleteOrder(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 
 	id, err := primitive.ObjectIDFromHex(params["id"])
@@ -149,7 +164,7 @@ func DeleteItem(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	collection, err := db.GetDBCollection(dbname, itemsCollection)
+	collection, err := db.GetDBCollection(dbname, ordersCollection)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -176,9 +191,9 @@ func DeleteItem(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
-func UpdateItem(response http.ResponseWriter, request *http.Request) {
+func UpdateOrder(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
-	var item model.Item
+	var order model.Order
 
 	// get id
 	id, err := primitive.ObjectIDFromHex(params["id"])
@@ -191,7 +206,7 @@ func UpdateItem(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	collection, err := db.GetDBCollection(dbname, itemsCollection)
+	collection, err := db.GetDBCollection(dbname, ordersCollection)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -205,7 +220,7 @@ func UpdateItem(response http.ResponseWriter, request *http.Request) {
 	filter := bson.M{"_id": id}
 
 	// read update model
-	err = json.NewDecoder(request.Body).Decode(&item)
+	err = json.NewDecoder(request.Body).Decode(&order)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(response).Encode(response_models.ErrorResponse{
@@ -219,13 +234,17 @@ func UpdateItem(response http.ResponseWriter, request *http.Request) {
 	update := bson.D{
 		{
 			"$set", bson.D{
-			{"item_name", item.ItemName},
-			{"item_description", item.ItemDescription},
-			{"item_type", item.ItemType},
-			{"item_img", item.ItemImg},
-			{"item_price", item.ItemPrice},
-			{"estimate_prepare_time", item.EstimatePrepareTime},
+			{"table_id", order.TableID},
+			{"staff_user_id", order.StaffUserID},
+			{"guest_user_id", order.GuestUserID},
+			{"items", order.Items},
+			{"total_price", order.TotalPrice},
+			{"created_at", order.CreatedAt},
+			{"ready_at", order.ReadyAt},
+			{"delivered_at", order.DeletedAt},
+			{"payed_at", order.PayedAt},
 			{"updated_at", time.Now().Unix()},
+			{"deleted_at", order.DeletedAt},
 
 		},
 		},
@@ -240,8 +259,11 @@ func UpdateItem(response http.ResponseWriter, request *http.Request) {
 		})
 		return
 	}
-	item.ID = id
+	order.ID = id
 
 	response.WriteHeader(http.StatusOK)
-	json.NewEncoder(response).Encode(item)
+	json.NewEncoder(response).Encode(order)
 }
+
+
+

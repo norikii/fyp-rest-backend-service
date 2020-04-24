@@ -88,6 +88,7 @@ func CreateStaffUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing the response
+	response.WriteHeader(http.StatusOK)
 	response.WriteHeader(http.StatusCreated)
 	json.NewEncoder(response).Encode(result)
 }
@@ -118,6 +119,7 @@ func LoginStaffUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(&successResponse)
 }
 
@@ -132,7 +134,7 @@ func checkStaffUser(email string, password string) (*response_models.SuccessLogi
 
 	err = collection.FindOne(context.TODO(), model.StaffUser{Email: email}).Decode(staffUser)
 	if err != nil {
-		return nil, fmt.Errorf("staff user cannot be found: %v", err)
+		return nil, fmt.Errorf("invalid email: %v", err)
 	}
 
 	isValid, err := auth.IsValidPassword(staffUser.Password, password)
@@ -140,7 +142,7 @@ func checkStaffUser(email string, password string) (*response_models.SuccessLogi
 		return nil, fmt.Errorf("invalid password: %v", err)
 	}
 
-	token, err := auth.CreateJWTToken(staffUser.ID, staffUser.LastName, staffUser.Email, staffUser.IsAdmin)
+	token, err := auth.CreateJWTToken(staffUser.ID, staffUser.FirstName, staffUser.Email, staffUser.IsAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create token: %v", err)
 	}
@@ -154,6 +156,10 @@ func checkStaffUser(email string, password string) (*response_models.SuccessLogi
 		Token: 		token,
 		User:       staffUser,
 	}, nil
+}
+
+func LogOut(response http.ResponseWriter, request *http.Request) {
+	// TODO implement logout
 }
 
 // GetStaffUsers retrieves all staff user objects from the database
@@ -201,6 +207,7 @@ func GetStaffUsers(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing the response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(staffUsers)
 }
 
@@ -237,6 +244,7 @@ func FindStaffUser(response http.ResponseWriter, request *http.Request) {
 	staffUser.Password = ""
 
 	// prepare the response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(staffUser)
 }
 
@@ -282,7 +290,7 @@ func UpdateStaffUser(response http.ResponseWriter, request *http.Request) {
 			{"last_name", staffUser.LastName},
 			{"email", staffUser.Email},
 			{"password", staffUser.Password},
-			{"isAdmin", staffUser.IsAdmin},
+			{"is_admin", staffUser.IsAdmin},
 			{"updated_at", time.Now().Unix()},
 		},
 		},
@@ -303,6 +311,7 @@ func UpdateStaffUser(response http.ResponseWriter, request *http.Request) {
 	staffUser.Password = ""
 
 	// preparing the user response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(staffUser)
 }
 
@@ -339,6 +348,7 @@ func DeleteStaffUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// preparing response
+	response.WriteHeader(http.StatusOK)
 	json.NewEncoder(response).Encode(result)
 }
 
