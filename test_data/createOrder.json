@@ -1,0 +1,36 @@
+{
+  "table_id": "5e91877bc161dae3b70ce643",
+  "staff_user_id": "5e91877bc161dae3b70ce643",
+  "guest_user_id": "5e91877bc161dae3b70ce643",
+  "items": [{
+    "_id": "5e91877bc161dae3b70ce643",
+    "item_name": "some reandom item",
+    "item_description": "some descripiton here",
+    "item_type": "alcohol",
+    "item_img": "imageeeeee",
+    "item_price": 12
+  }, {
+    "_id": "5e91877bc161dae3b70ce643",
+    "item_name": "some reandom item",
+    "item_description": "some descripiton here",
+    "item_type": "alcohol",
+    "item_img": "imageeeeee",
+    "item_price": 12
+  }, {
+    "_id": "5e91877bc161dae3b70ce643",
+    "item_name": "some reandom item",
+    "item_description": "some descripiton here",
+    "item_type": "alcohol",
+    "item_img": "imageeeeee",
+    "item_price": 12
+  }, {
+    "_id": "5e91877bc161dae3b70ce643",
+    "item_name": "some reandom item",
+    "item_description": "some descripiton here",
+    "item_type": "alcohol",
+    "item_img": "imageeeeee",
+    "item_price": 12
+  }]
+}
+
+
