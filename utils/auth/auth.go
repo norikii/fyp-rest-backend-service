@@ -1,4 +1,4 @@
-package utils
+package auth
 
 import (
 	"fmt"
@@ -7,21 +7,35 @@ import (
 	"time"
 )
 
+const (
+
+)
+
 type JWTToken struct {
 	UserID interface{}
 	Name string
 	Email string
+	IsAdmin bool
 	*jwt.StandardClaims
 }
 
-func CreateJWTToken(userID interface{}, name string, email string) (string, error) {
+func CreateJWTToken(userID interface{}, name string, email string, isAdmin bool) (string, error) {
+	//tokenTTL, err := strconv.Atoi(os.Getenv("JWT_TOKEN_TTL"))
+	//if err != nil {
+	//	return "", fmt.Errorf("unable to get token ttl from .env: %v", err)
+	//}
 	tokenStruct := JWTToken{
 		UserID:         userID,
 		Name:           name,
 		Email:          email,
+		IsAdmin:		false,
 		StandardClaims: &jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
 		},
+	}
+
+	if isAdmin {
+		tokenStruct.IsAdmin = true
 	}
 
 	// generate JWT token
@@ -36,15 +50,20 @@ func CreateJWTToken(userID interface{}, name string, email string) (string, erro
 	return tokenString, err
 }
 
-func IsValidJWTToken(tokenString string, ) (bool, error) {
+func IsValidJWTToken(tokenString string) (isValidToken bool, isAdmin bool ,err error) {
 	tokenStruct := &JWTToken{}
 
-	_, err := jwt.ParseWithClaims(tokenString, tokenStruct, func(token *jwt.Token) (i interface{}, err error) {
+	token, err := jwt.ParseWithClaims(tokenString, tokenStruct, func(token *jwt.Token) (i interface{}, err error) {
 		return []byte(os.Getenv("JWT_KEY")), nil
 	})
 	if err != nil {
-		return false, fmt.Errorf("not valid JWT token: %v", err)
+		return false, false, fmt.Errorf("not valid JWT token: %v", err)
 	}
 
-	return true, nil
+	claims := token.Claims.(*JWTToken)
+	if claims.IsAdmin == true {
+		return true, true, nil
+	}
+
+	return true, false, nil
 }
